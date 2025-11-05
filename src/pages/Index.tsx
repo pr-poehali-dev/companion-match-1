@@ -72,7 +72,7 @@ export default function Index() {
             <span>Рандом Купе</span>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/trips')}>
               Мои поездки
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/profile')}>

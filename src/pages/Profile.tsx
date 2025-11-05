@@ -50,7 +50,7 @@ export default function Profile() {
             <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
               Главная
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/trips')}>
               Мои поездки
             </Button>
           </div>
