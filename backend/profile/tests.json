@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "Create new user profile",
+      "method": "POST",
+      "body": {
+        "name": "Test User",
+        "age": 30,
+        "bio": "Test bio",
+        "interests": ["Books", "Music"]
+      },
+      "expectedStatus": 201
+    },
+    {
+      "name": "Get user profile by ID",
+      "method": "GET",
+      "path": "/?user_id=1",
+      "expectedStatus": 200
+    }
+  ]
+}

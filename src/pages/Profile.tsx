@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -15,16 +15,19 @@ const INTERESTS = [
   'Наука', 'Мода', 'Психология', 'Автомобили', 'Игры'
 ];
 
+const API_URL = 'https://functions.poehali.dev/d3a4a052-1089-4ac1-aa56-a1d107f1bb60';
+
 export default function Profile() {
   const navigate = useNavigate();
-  const [name, setName] = useState('Александр');
-  const [age, setAge] = useState('30');
-  const [bio, setBio] = useState('Люблю путешествовать и знакомиться с интересными людьми');
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([
-    'Книги', 'Путешествия', 'Технологии'
-  ]);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [name, setName] = useState('');
+  const [age, setAge] = useState('');
+  const [bio, setBio] = useState('');
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [notifications, setNotifications] = useState(true);
   const [shareContacts, setShareContacts] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests(prev =>
@@ -34,8 +37,89 @@ export default function Profile() {
     );
   };
 
-  const handleSave = () => {
-    console.log('Saving profile...');
+  useEffect(() => {
+    const storedUserId = localStorage.getItem('userId');
+    if (storedUserId) {
+      setUserId(parseInt(storedUserId));
+      loadProfile(parseInt(storedUserId));
+    }
+  }, []);
+
+  const loadProfile = async (id: number) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}?user_id=${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setName(data.name || '');
+        setAge(data.age?.toString() || '');
+        setBio(data.bio || '');
+        setSelectedInterests(data.interests || []);
+        setNotifications(data.notifications_enabled ?? true);
+        setShareContacts(data.share_contacts ?? false);
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!name || !age) {
+      alert('Пожалуйста, заполните имя и возраст');
+      return;
+    }
+
+    setLoading(true);
+    setSaved(false);
+
+    try {
+      if (userId) {
+        const response = await fetch(API_URL, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            name,
+            age: parseInt(age),
+            bio,
+            interests: selectedInterests,
+            notifications_enabled: notifications,
+            share_contacts: shareContacts
+          })
+        });
+
+        if (response.ok) {
+          setSaved(true);
+          setTimeout(() => setSaved(false), 3000);
+        }
+      } else {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            age: parseInt(age),
+            bio,
+            interests: selectedInterests
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUserId(data.id);
+          localStorage.setItem('userId', data.id.toString());
+          setSaved(true);
+          setTimeout(() => setSaved(false), 3000);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Ошибка при сохранении профиля');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -222,14 +306,20 @@ export default function Profile() {
               </CardContent>
             </Card>
 
-            <div className="flex gap-4">
-              <Button size="lg" onClick={handleSave}>
+            <div className="flex gap-4 items-center">
+              <Button size="lg" onClick={handleSave} disabled={loading}>
                 <Icon name="Save" className="mr-2" size={18} />
-                Сохранить изменения
+                {loading ? 'Сохранение...' : 'Сохранить изменения'}
               </Button>
               <Button size="lg" variant="outline" onClick={() => navigate('/')}>
                 Отмена
               </Button>
+              {saved && (
+                <div className="flex items-center gap-2 text-green-600 animate-fade-in">
+                  <Icon name="Check" size={20} />
+                  <span className="font-medium">Сохранено</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
