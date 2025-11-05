@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +49,7 @@ const MOCK_COMPANIONS = [
 ];
 
 export default function Index() {
+  const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState<'hero' | 'search'>('hero');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [searchFrom, setSearchFrom] = useState('');
@@ -73,7 +75,7 @@ export default function Index() {
             <Button variant="ghost" size="sm">
               Мои поездки
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/profile')}>
               Профиль
             </Button>
           </div>
