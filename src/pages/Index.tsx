@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,12 +48,68 @@ const MOCK_COMPANIONS = [
   }
 ];
 
+const TRIPS_API_URL = 'https://functions.poehali.dev/d15d65b4-83cc-4aac-8f33-08d2fc50d90f';
+
 export default function Index() {
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState<'hero' | 'search'>('hero');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [searchFrom, setSearchFrom] = useState('');
   const [searchTo, setSearchTo] = useState('');
+  const [travelDate, setTravelDate] = useState('');
+  const [trainNumber, setTrainNumber] = useState('');
+  const [carriage, setCarriage] = useState('');
+  const [seat, setSeat] = useState('');
+  const [userId, setUserId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const storedUserId = localStorage.getItem('userId');
+    if (storedUserId) {
+      setUserId(parseInt(storedUserId));
+    }
+  }, []);
+
+  const handleCreateTrip = async () => {
+    if (!searchFrom || !searchTo || !travelDate) {
+      alert('Пожалуйста, заполните обязательные поля');
+      return;
+    }
+
+    if (!userId) {
+      alert('Сначала заполните профиль');
+      navigate('/profile');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const response = await fetch(TRIPS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          from_city: searchFrom,
+          to_city: searchTo,
+          travel_date: travelDate,
+          train_number: trainNumber || null,
+          carriage: carriage ? parseInt(carriage) : null,
+          seat: seat ? parseInt(seat) : null
+        })
+      });
+
+      if (response.ok) {
+        alert('Поездка добавлена!');
+        navigate('/trips');
+      }
+    } catch (error) {
+      console.error('Error creating trip:', error);
+      alert('Ошибка при создании поездки');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests(prev =>
@@ -189,11 +245,56 @@ export default function Index() {
                   </div>
                 </div>
 
-                <div className="mb-6">
-                  <label className="text-sm font-medium mb-2 block">
-                    Дата поездки
-                  </label>
-                  <Input type="date" className="h-12 max-w-xs" />
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Дата поездки
+                    </label>
+                    <Input 
+                      type="date" 
+                      value={travelDate}
+                      onChange={(e) => setTravelDate(e.target.value)}
+                      className="h-12" 
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Номер поезда (необязательно)
+                    </label>
+                    <Input
+                      placeholder="002А"
+                      value={trainNumber}
+                      onChange={(e) => setTrainNumber(e.target.value)}
+                      className="h-12"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Вагон (необязательно)
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="5"
+                      value={carriage}
+                      onChange={(e) => setCarriage(e.target.value)}
+                      className="h-12"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Место (необязательно)
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="12"
+                      value={seat}
+                      onChange={(e) => setSeat(e.target.value)}
+                      className="h-12"
+                    />
+                  </div>
                 </div>
 
                 <Separator className="my-6" />
@@ -216,9 +317,14 @@ export default function Index() {
                   </div>
                 </div>
 
-                <Button size="lg" className="w-full md:w-auto mt-6">
-                  <Icon name="Search" className="mr-2" size={18} />
-                  Найти
+                <Button 
+                  size="lg" 
+                  className="w-full md:w-auto mt-6"
+                  onClick={handleCreateTrip}
+                  disabled={saving}
+                >
+                  <Icon name="Plus" className="mr-2" size={18} />
+                  {saving ? 'Сохранение...' : 'Создать поездку'}
                 </Button>
               </CardContent>
             </Card>

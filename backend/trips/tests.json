@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Create new trip",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "user_id": 1,
+        "from_city": "Москва",
+        "to_city": "Санкт-Петербург",
+        "travel_date": "2025-12-01",
+        "train_number": "002А",
+        "carriage": 5,
+        "seat": 12
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "user_id": 1,
+        "status": "pending"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get user trips",
+      "method": "GET",
+      "path": "/?user_id=1",
+      "expectedStatus": 200
+    }
+  ]
+}

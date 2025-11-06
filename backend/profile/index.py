@@ -69,9 +69,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cur.execute('''
-                    SELECT interest FROM user_interests WHERE user_id = %s
+                    SELECT i.name 
+                    FROM user_interests ui
+                    JOIN interests i ON ui.interest_id = i.id
+                    WHERE ui.user_id = %s
                 ''', (user_id,))
-                interests = [row['interest'] for row in cur.fetchall()]
+                interests = [row['name'] for row in cur.fetchall()]
                 
                 user_dict = dict(user)
                 user_dict['interests'] = interests
@@ -112,11 +115,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 user = cur.fetchone()
                 user_id = user['id']
                 
-                for interest in interests:
+                for interest_name in interests:
                     cur.execute('''
-                        INSERT INTO user_interests (user_id, interest)
-                        VALUES (%s, %s)
-                    ''', (user_id, interest))
+                        INSERT INTO user_interests (user_id, interest_id)
+                        SELECT %s, id FROM interests WHERE name = %s
+                        ON CONFLICT (user_id, interest_id) DO NOTHING
+                    ''', (user_id, interest_name))
                 
                 conn.commit()
                 
@@ -204,24 +208,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             'isBase64Encoded': False
                         }
                     
-                    cur.execute('SELECT interest FROM user_interests WHERE user_id = %s', (user_id,))
-                    existing_interests = {row['interest'] for row in cur.fetchall()}
+                    cur.execute('''
+                        SELECT i.name 
+                        FROM user_interests ui
+                        JOIN interests i ON ui.interest_id = i.id
+                        WHERE ui.user_id = %s
+                    ''', (user_id,))
+                    existing_interests = {row['name'] for row in cur.fetchall()}
                     new_interests = set(body_data['interests'])
                     
                     to_remove = existing_interests - new_interests
                     to_add = new_interests - existing_interests
                     
-                    for interest in to_remove:
-                        cur.execute('SELECT id FROM user_interests WHERE user_id = %s AND interest = %s', (user_id, interest))
+                    for interest_name in to_remove:
+                        cur.execute('''
+                            SELECT ui.id FROM user_interests ui
+                            JOIN interests i ON ui.interest_id = i.id
+                            WHERE ui.user_id = %s AND i.name = %s
+                        ''', (user_id, interest_name))
                         row = cur.fetchone()
                         if row:
-                            cur.execute('UPDATE user_interests SET interest = NULL WHERE id = %s', (row['id'],))
+                            cur.execute('UPDATE user_interests SET interest_id = NULL WHERE id = %s', (row['id'],))
                     
-                    for interest in to_add:
+                    for interest_name in to_add:
                         cur.execute('''
-                            INSERT INTO user_interests (user_id, interest)
-                            VALUES (%s, %s)
-                        ''', (user_id, interest))
+                            INSERT INTO user_interests (user_id, interest_id)
+                            SELECT %s, id FROM interests WHERE name = %s
+                            ON CONFLICT (user_id, interest_id) DO NOTHING
+                        ''', (user_id, interest_name))
                 
                 conn.commit()
                 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,81 +7,66 @@ import { Separator } from '@/components/ui/separator';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
 
-const ACTIVE_TRIPS = [
-  {
-    id: 1,
-    from: 'Москва',
-    to: 'Санкт-Петербург',
-    date: '15 ноября 2025',
-    trainNumber: '020А',
-    carriage: 5,
-    seat: 12,
-    status: 'confirmed',
-    companions: [
-      { name: 'Анна', avatar: '👩‍💼', interests: ['Книги', 'Музыка'] },
-      { name: 'Дмитрий', avatar: '👨‍💻', interests: ['Технологии', 'Бизнес'] }
-    ]
-  },
-  {
-    id: 2,
-    from: 'Санкт-Петербург',
-    to: 'Москва',
-    date: '20 ноября 2025',
-    trainNumber: '026А',
-    carriage: 3,
-    seat: 8,
-    status: 'pending',
-    companions: []
-  }
-];
+const TRIPS_API_URL = 'https://functions.poehali.dev/d15d65b4-83cc-4aac-8f33-08d2fc50d90f';
 
-const PAST_TRIPS = [
-  {
-    id: 3,
-    from: 'Москва',
-    to: 'Казань',
-    date: '1 октября 2025',
-    trainNumber: '044А',
-    rating: 5,
-    companions: [
-      {
-        name: 'Елена',
-        avatar: '👩‍🎨',
-        rating: 5,
-        review: 'Отличная компания! Время пролетело незаметно',
-        interests: ['Искусство', 'Путешествия']
-      },
-      {
-        name: 'Сергей',
-        avatar: '👨‍🔬',
-        rating: 4,
-        review: 'Интересный собеседник',
-        interests: ['Наука', 'Книги']
-      }
-    ]
-  },
-  {
-    id: 4,
-    from: 'Москва',
-    to: 'Екатеринбург',
-    date: '15 сентября 2025',
-    trainNumber: '068У',
-    rating: 4,
-    companions: [
-      {
-        name: 'Ольга',
-        avatar: '👩‍💼',
-        rating: 5,
-        review: 'Прекрасное путешествие!',
-        interests: ['Бизнес', 'Спорт']
-      }
-    ]
-  }
-];
+interface Trip {
+  id: number;
+  from_city: string;
+  to_city: string;
+  travel_date: string;
+  train_number?: string;
+  carriage?: number;
+  seat?: number;
+  status: string;
+  rating?: number;
+}
 
 export default function Trips() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('active');
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+      loadTrips(parseInt(userId));
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadTrips = async (userId: number) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${TRIPS_API_URL}?user_id=${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTrips(data.trips || []);
+      }
+    } catch (error) {
+      console.error('Error loading trips:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+  };
+
+  const activeTrips = trips.filter(trip => 
+    trip.status === 'pending' || trip.status === 'confirmed'
+  );
+  
+  const pastTrips = trips.filter(trip => 
+    trip.status === 'completed' || trip.status === 'cancelled'
+  );
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -136,161 +121,118 @@ export default function Trips() {
             </div>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="active">
-                Активные ({ACTIVE_TRIPS.length})
-              </TabsTrigger>
-              <TabsTrigger value="past">
-                История ({PAST_TRIPS.length})
-              </TabsTrigger>
-            </TabsList>
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Загрузка...</p>
+            </div>
+          ) : (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="active">
+                  Активные ({activeTrips.length})
+                </TabsTrigger>
+                <TabsTrigger value="past">
+                  История ({pastTrips.length})
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="active" className="mt-6 space-y-4">
-              {ACTIVE_TRIPS.map((trip) => (
-                <Card key={trip.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-2xl font-semibold">
-                            {trip.from} → {trip.to}
-                          </h3>
-                          <Badge variant={trip.status === 'confirmed' ? 'default' : 'secondary'}>
+              <TabsContent value="active" className="mt-6 space-y-4">
+                {activeTrips.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-12 text-center">
+                      <p className="text-muted-foreground mb-4">У вас пока нет активных поездок</p>
+                      <Button onClick={() => navigate('/')}>
+                        Найти попутчиков
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  activeTrips.map((trip) => (
+                    <Card key={trip.id} className="hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-2xl font-semibold">
+                                {trip.from_city} → {trip.to_city}
+                              </h3>
+                              <Badge variant={trip.status === 'confirmed' ? 'default' : 'secondary'}>
                             {trip.status === 'confirmed' ? 'Подтверждено' : 'Ожидание'}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Icon name="Calendar" size={16} />
-                            <span>{trip.date}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Icon name="Train" size={16} />
-                            <span>Поезд {trip.trainNumber}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Icon name="Armchair" size={16} />
-                            <span>Вагон {trip.carriage}, место {trip.seat}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <Separator className="my-4" />
-
-                    <div>
-                      <h4 className="font-medium mb-3 flex items-center gap-2">
-                        <Icon name="Users" size={18} />
-                        Попутчики ({trip.companions.length})
-                      </h4>
-                      {trip.companions.length > 0 ? (
-                        <div className="grid md:grid-cols-2 gap-3">
-                          {trip.companions.map((companion, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center gap-3 p-3 bg-muted rounded-lg"
-                            >
-                              <div className="text-3xl">{companion.avatar}</div>
-                              <div className="flex-1">
-                                <p className="font-medium">{companion.name}</p>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {companion.interests.map((interest) => (
-                                    <Badge key={interest} variant="outline" className="text-xs">
-                                      {interest}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
+                              </Badge>
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground text-sm">
-                          Попутчики пока не найдены
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex gap-3 mt-4">
-                      <Button size="sm">
-                        <Icon name="MessageCircle" className="mr-2" size={16} />
-                        Чат купе
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        <Icon name="Info" className="mr-2" size={16} />
-                        Детали
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-
-            <TabsContent value="past" className="mt-6 space-y-4">
-              {PAST_TRIPS.map((trip) => (
-                <Card key={trip.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-2xl mb-2">
-                          {trip.from} → {trip.to}
-                        </CardTitle>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Icon name="Calendar" size={16} />
-                            <span>{trip.date}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Icon name="Train" size={16} />
-                            <span>Поезд {trip.trainNumber}</span>
+                            <div className="flex items-center gap-4 text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <Icon name="Calendar" size={16} />
+                                <span>{formatDate(trip.travel_date)}</span>
+                              </div>
+                              {trip.train_number && (
+                                <div className="flex items-center gap-2">
+                                  <Icon name="Train" size={16} />
+                                  <span>Поезд {trip.train_number}</span>
+                                </div>
+                              )}
+                              {trip.carriage && trip.seat && (
+                                <div className="flex items-center gap-2">
+                                  <Icon name="Armchair" size={16} />
+                                  <span>Вагон {trip.carriage}, место {trip.seat}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {renderStars(trip.rating)}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <h4 className="font-medium mb-3 flex items-center gap-2">
-                      <Icon name="Users" size={18} />
-                      Попутчики
-                    </h4>
-                    <div className="space-y-3">
-                      {trip.companions.map((companion, idx) => (
-                        <div key={idx} className="p-4 bg-muted rounded-lg">
-                          <div className="flex items-start gap-4">
-                            <div className="text-4xl">{companion.avatar}</div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="font-semibold text-lg">{companion.name}</p>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
+
+              <TabsContent value="past" className="mt-6 space-y-4">
+                {pastTrips.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-12 text-center">
+                      <p className="text-muted-foreground">У вас пока нет завершённых поездок</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  pastTrips.map((trip) => (
+                    <Card key={trip.id} className="hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-2xl font-semibold">
+                                {trip.from_city} → {trip.to_city}
+                              </h3>
+                              {trip.rating && (
                                 <div className="flex items-center gap-1">
-                                  {renderStars(companion.rating)}
+                                  {renderStars(trip.rating)}
                                 </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <Icon name="Calendar" size={16} />
+                                <span>{formatDate(trip.travel_date)}</span>
                               </div>
-                              <div className="flex flex-wrap gap-1 mb-2">
-                                {companion.interests.map((interest) => (
-                                  <Badge key={interest} variant="outline" className="text-xs">
-                                    {interest}
-                                  </Badge>
-                                ))}
-                              </div>
-                              <p className="text-sm text-muted-foreground italic">
-                                "{companion.review}"
-                              </p>
+                              {trip.train_number && (
+                                <div className="flex items-center gap-2">
+                                  <Icon name="Train" size={16} />
+                                  <span>Поезд {trip.train_number}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-          </Tabs>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       </section>
     </div>
   );
 }
+
